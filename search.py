@@ -14,11 +14,11 @@ ca = certifi.where()
 # MongoDB Setup
 MONGO_URI = os.environ["MONGO"]
 client = MongoClient(MONGO_URI, tlsCAFile=ca)
-db = client["parliament_data"]
-collection = db["journals"]
+db = client["dev"]
+collection = db["pages"]
 
-# Ensure full-text search index is created
-collection.create_index([("raw_text", "text")])
+# Ensure full-text search index is created [WTF IS THIS?]
+# collection.create_index([("raw_text", "text")])
 
 
 def search_journals(

@@ -52,12 +52,13 @@ def test_post():
 @app.route("/api/search", methods=["POST"])
 def search():
     try:
-        print("Request headers:", dict(request.headers))
+        # print("Request headers:", dict(request.headers))
         # Debugging: Log when the search method is called
         print("Search method called")
         # Debugging: Log the incoming request data
         data = request.get_json()
         print("Received data:", data)
+
         results = search_journals(
             volume=data.get("volume", []),
             page_numbers=data.get("pageNumber", []),
