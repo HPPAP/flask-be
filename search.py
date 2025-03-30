@@ -1,11 +1,18 @@
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the .env file
+
+
 from pymongo import MongoClient
 from typing import List, Optional
 import certifi
 
+load_dotenv()
 ca = certifi.where()
 
 # MongoDB Setup
-MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net"
+MONGO_URI = os.environ["MONGO"]
 client = MongoClient(MONGO_URI, tlsCAFile=ca)
 db = client["parliament_data"]
 collection = db["journals"]
