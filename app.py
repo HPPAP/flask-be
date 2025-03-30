@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
-from search import search_journals
 
+from search import search_journals
 
 app = Flask(__name__)
 # test

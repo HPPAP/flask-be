@@ -1,13 +1,18 @@
 from pymongo import MongoClient
 from typing import List, Optional
+import certifi
+
+ca = certifi.where()
 
 # MongoDB Setup
-client = MongoClient("mongodb://localhost:27017/")
+MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net"
+client = MongoClient(MONGO_URI, tlsCAFile=ca)
 db = client["parliament_data"]
 collection = db["journals"]
 
 # Ensure full-text search index is created
 collection.create_index([("raw_text", "text")])
+
 
 def search_journals(
     volume: List[str] = None,
@@ -15,10 +20,10 @@ def search_journals(
     dates: List[str] = None,
     topics: List[str] = None,
     keywords: List[str] = None,
-    limit: int = 20
+    limit: int = 20,
 ) -> List[dict]:
     """Search journals based on provided filters"""
-    
+
     query = {}
 
     # Filter by volume
