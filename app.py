@@ -12,7 +12,7 @@ CORS(
     origins=[
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://flask-be-46t2.onrender.com",
+        "https://react-fe-2xnv.onrender.com",
     ],
     methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
