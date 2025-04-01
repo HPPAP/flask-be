@@ -21,7 +21,7 @@ CORS(
 
 @app.route("/api/test", methods=["GET"])
 def test_route():
-    return jsonify({"message": "WHAT A WONDERFUL DAY BRAIN"})
+    return jsonify({"message": "APE TOGETHER STRONG"})
 
 
 @app.route("/api/test-post", methods=["POST", "OPTIONS"])
@@ -73,6 +73,7 @@ def search():
         # Debugging: Log any exceptions
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
+    
 
 
 if __name__ == "__main__":
