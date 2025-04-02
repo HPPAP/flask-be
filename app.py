@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
-
-from search import search_journals
+from search import search_journals, test_query, get_all_years
+from results import get_pages_by_ids
 
 app = Flask(__name__)
 # test
@@ -16,6 +16,8 @@ CORS(
     ],
     methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Content-Type", "X-Total-Count"],
+    vary_header=True
 )
 
 
@@ -65,6 +67,7 @@ def search():
             dates=data.get("date", []),
             topics=data.get("topics", []),
             keywords=data.get("keywords", []),
+            year=data.get("year"),
         )
         response = jsonify({"results": results})
         response.headers.add("Access-Control-Allow-Origin", "*")
@@ -74,6 +77,35 @@ def search():
         print("Error occurred:", str(e))
         return jsonify({"error": str(e)}), 500
     
+
+@app.route('/api/results', methods=['POST'])
+def get_results():
+    try:
+        print("Results endpoint called")
+        data = request.get_json()
+        page_ids = data.get('page_ids', [])
+        
+        if not page_ids:
+            return jsonify({"error": "No page IDs provided"}), 400
+            
+        results = get_pages_by_ids(page_ids)
+        return jsonify({"results": results})
+    except Exception as e:
+        print("Error occurred:", str(e))
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route("/api/years", methods=["GET"])
+def get_available_years():
+    try:
+        # Get all years and ranges from the database
+        year_data = get_all_years()
+        
+        # Simply return the data - CORS is handled by the global CORS middleware
+        return jsonify(year_data)
+    except Exception as e:
+        print("Error fetching years:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
