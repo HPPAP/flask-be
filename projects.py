@@ -17,7 +17,10 @@ projects_collection = db["projects"]
 
 
 def get_all_projects():
-    return list(projects_collection.find())
+    projects = list(projects_collection.find())
+    for p in projects:
+        p["_id"] = str(p["_id"])
+    return projects
 
 
 def update_project(data):

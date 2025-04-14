@@ -112,7 +112,8 @@ def get_available_years():
 @app.route("/api/projects", methods=["GET"])
 def api_get_all_projects():
     all_projects = get_all_projects()
-    return jsonify(all_projects)
+    return jsonify({"projects": all_projects})
+    # return jsonify({"good": "god"})
 
 
 @app.route("/api/project", methods=["post"])
