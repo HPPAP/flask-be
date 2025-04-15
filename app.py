@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from search import search_journals, test_query, get_all_years
 from results import get_pages_by_ids
-from projects import get_all_projects, update_project
+from projects import get_all_projects, update_project, get_project
 
 app = Flask(__name__)
 # test
@@ -116,7 +116,22 @@ def api_get_all_projects():
     # return jsonify({"good": "god"})
 
 
-@app.route("/api/project", methods=["post"])
+@app.route("/api/project", methods=["POST"])
+def api_get_project():
+    try:
+        data = request.get_json()  # This parses the incoming JSON body
+        if not data:
+            return {"error": "No JSON data found"}, 400
+        project = get_project(data)
+        if not project:
+            return {"error": "No project found"}, 400
+        return jsonify({"project": project})
+
+    except Exception as e:
+        return {"error": str(e)}, 400
+
+
+@app.route("/api/project/update", methods=["post"])
 def api_create_project():
     try:
         data = request.get_json()  # This parses the incoming JSON body

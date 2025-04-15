@@ -5,6 +5,7 @@ load_dotenv()
 import os
 from pymongo import MongoClient
 import certifi
+from bson.objectid import ObjectId
 
 ca = certifi.where()
 
@@ -24,15 +25,25 @@ def get_all_projects():
 
 
 def update_project(data):
-    projects_collection.update_one(
-        {"title": data["title"]},  # Filter
-        {
-            "$set": {
-                "description": data["description"],
-                "volumes": data["volumes"],
-                "pages": data["pages"],
-            }
-        },  # Update operation
+    update = {}
+
+    attributes = ["title", "description", "pages"]
+    for attribute in attributes:
+        try:
+            if data[attribute]:
+                update[attribute] = data[attribute]
+        except:
+            pass
+
+    result = projects_collection.update_one(
+        {"_id": ObjectId(data["id"])},  # Filter
+        {"$set": update},  # Update operation
         upsert=True,  # Insert if not found
     )
-    pass
+    print(result)
+
+
+def get_project(data):
+    p = projects_collection.find_one({"_id": ObjectId(data["id"])})
+    p["_id"] = str(p["_id"])
+    return p
