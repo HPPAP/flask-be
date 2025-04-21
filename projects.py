@@ -47,3 +47,9 @@ def get_project(data):
     p = projects_collection.find_one({"_id": ObjectId(data["id"])})
     p["_id"] = str(p["_id"])
     return p
+
+
+# added create project
+def create_project():
+    doc = projects_collection.insert_one({"title": "", "description": "", "pages": []})
+    return {"_id": str(doc.inserted_id), "title": "", "description": "", "pages": []}

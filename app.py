@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from search import search_journals, test_query, get_all_years
 from results import get_pages_by_ids
-from projects import get_all_projects, update_project, get_project
+from projects import get_all_projects, update_project, get_project, create_project
 
 app = Flask(__name__)
 # test
@@ -146,3 +146,15 @@ def api_create_project():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+
+from projects import create_project
+
+
+# added create project
+@app.route("/api/project/create", methods=["POST", "OPTIONS"])
+def api_project_create():
+    if request.method == "OPTIONS":
+        return make_response(), 200
+
+    proj = create_project()
+    return jsonify({"project": proj}), 201
