@@ -2,7 +2,13 @@ from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from search import search_journals, test_query, get_all_years
 from results import get_pages_by_ids
-from projects import get_all_projects, update_project, get_project, create_project
+from projects import (
+    get_all_projects,
+    update_project,
+    get_project,
+    create_project,
+    delete_project,
+)
 
 app = Flask(__name__)
 # test
@@ -158,3 +164,21 @@ def api_project_create():
 
     proj = create_project()
     return jsonify({"project": proj}), 201
+
+
+# added delete project
+@app.route("/api/project/delete", methods=["POST", "OPTIONS"])
+def api_project_delete():
+    if request.method == "OPTIONS":
+        return make_response(), 200
+
+    data = request.get_json() or {}
+    proj_id = data.get("id")
+    if not proj_id:
+        return jsonify({"error": "No project ID provided"}), 400
+
+    success = delete_project(proj_id)
+    if not success:
+        return jsonify({"error": "Delete failed or project not found"}), 404
+
+    return jsonify({"deleted": proj_id}), 200

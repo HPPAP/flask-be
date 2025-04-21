@@ -53,3 +53,9 @@ def get_project(data):
 def create_project():
     doc = projects_collection.insert_one({"title": "", "description": "", "pages": []})
     return {"_id": str(doc.inserted_id), "title": "", "description": "", "pages": []}
+
+
+# added delete project
+def delete_project(project_id: str) -> bool:
+    result = projects_collection.delete_one({"_id": ObjectId(project_id)})
+    return result.deleted_count == 1
