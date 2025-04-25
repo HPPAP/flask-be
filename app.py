@@ -174,7 +174,7 @@ def api_project_delete():
         return make_response(), 200
 
     data = request.get_json() or {}
-    proj_id = data.get("id")
+    proj_id = data.get("_id")
     if not proj_id:
         return jsonify({"error": "No project ID provided"}), 400
 
