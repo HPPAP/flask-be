@@ -76,6 +76,7 @@ def search():
             keywords=data.get("keywords", []),
             year=data.get("year"),
         )
+
         response = jsonify({"results": results})
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response

@@ -15,6 +15,7 @@ client = MongoClient(MONGO_URI, tlsCAFile=ca)
 db = client["dev"]
 
 projects_collection = db["projects"]
+pages_collection = db["pages"]
 
 
 def get_all_projects():
@@ -26,26 +27,48 @@ def get_all_projects():
 
 def update_project(data):
     update = {}
-
     attributes = ["title", "description", "pages"]
+
     for attribute in attributes:
         try:
-            if data[attribute]:
+            if data[attribute] is not None:
                 update[attribute] = data[attribute]
         except:
             pass
 
     result = projects_collection.update_one(
-        {"_id": ObjectId(data["id"])},  # Filter
+        {"_id": ObjectId(data["_id"])},  # Filter
         {"$set": update},  # Update operation
         upsert=True,  # Insert if not found
     )
-    print(result)
 
 
 def get_project(data):
     p = projects_collection.find_one({"_id": ObjectId(data["id"])})
+
+    print(p["pages"])
+
+    object_ids = [ObjectId(id_) for id_ in p["pages"]]
+
+    print(object_ids)
+    docs_cursor = pages_collection.find({"_id": {"$in": object_ids}})
+
+    docs = list(docs_cursor)
+
+    p["page_docs"] = list(
+        map(
+            lambda doc: {
+                "_id": str(doc["_id"]),
+                "page_number": str(doc["page_number"]),
+                "volume_title": str(doc["volume_title"]),
+                "text": doc["text"][:40],
+            },
+            docs,
+        )
+    )
+
     p["_id"] = str(p["_id"])
+
     return p
 
 
