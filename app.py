@@ -33,6 +33,16 @@ def test_route():
     return jsonify({"message": "APE TOGETHER STRONG"})
 
 
+# added create project
+@app.route("/api/project/create", methods=["POST", "OPTIONS"])
+def api_project_create():
+    if request.method == "OPTIONS":
+        return make_response(), 200
+
+    proj = create_project()
+    return jsonify({"project": proj}), 201
+
+
 @app.route("/api/test-post", methods=["POST", "OPTIONS"])
 def test_post():
     # Handle OPTIONS request (preflight)
@@ -155,16 +165,6 @@ if __name__ == "__main__":
     app.run(debug=True, port=5000)
 
 from projects import create_project
-
-
-# added create project
-@app.route("/api/project/create", methods=["POST", "OPTIONS"])
-def api_project_create():
-    if request.method == "OPTIONS":
-        return make_response(), 200
-
-    proj = create_project()
-    return jsonify({"project": proj}), 201
 
 
 # added delete project

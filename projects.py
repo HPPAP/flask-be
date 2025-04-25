@@ -44,7 +44,7 @@ def update_project(data):
 
 
 def get_project(data):
-    p = projects_collection.find_one({"_id": ObjectId(data["id"])})
+    p = projects_collection.find_one({"_id": ObjectId(data["_id"])})
 
     print(p["pages"])
 
