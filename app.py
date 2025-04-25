@@ -8,6 +8,7 @@ from projects import (
     get_project,
     create_project,
     delete_project,
+    get_page,
 )
 
 app = Flask(__name__)
@@ -26,6 +27,19 @@ CORS(
     expose_headers=["Content-Type", "X-Total-Count"],
     vary_header=True,
 )
+
+
+@app.route("/api/page/get", methods=["POST"])
+def api_get_page():
+    try:
+        data = request.get_json()  # This parses the incoming JSON body
+        if not data:
+            return {"error": "No JSON data found"}, 400
+
+        return jsonify({"page": get_page(data)})
+
+    except Exception as e:
+        return {"error": str(e)}, 400
 
 
 @app.route("/api/test", methods=["GET"])

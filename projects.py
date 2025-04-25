@@ -44,7 +44,7 @@ def update_project(data):
 
 
 def get_project(data):
-    p = projects_collection.find_one({"_id": ObjectId(data["id"])})
+    p = projects_collection.find_one({"_id": ObjectId(data["_id"])})
 
     print(p["pages"])
 
@@ -82,3 +82,10 @@ def create_project():
 def delete_project(project_id: str) -> bool:
     result = projects_collection.delete_one({"_id": ObjectId(project_id)})
     return result.deleted_count == 1
+
+
+def get_page(data):
+    print(data)
+    p = pages_collection.find_one({"_id": ObjectId(data["_id"])})
+    p["_id"] = str(p["_id"])
+    return p
