@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from search import search_journals, test_query, get_all_years
-from results import get_pages_by_ids
+from results import get_pages_by_ids, get_adjacent_page
 from projects import (
     get_all_projects,
     update_project,
@@ -175,10 +175,35 @@ def api_create_project():
         return {"error": str(e)}, 400
 
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5000)
-
-from projects import create_project
+@app.route("/api/page/adjacent", methods=["POST", "OPTIONS"])
+def get_adjacent_page_endpoint():
+    # Handle OPTIONS request (preflight)
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "http://localhost:5173")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response
+        
+    try:
+        data = request.get_json()
+        page_id = data.get("page_id")
+        direction = data.get("direction", "next")  # "next" or "previous"
+        
+        if not page_id:
+            return jsonify({"error": "No page ID provided"}), 400
+            
+        # Get the adjacent page from the database
+        adjacent_page = get_adjacent_page(page_id, direction)
+        
+        if not adjacent_page:
+            return jsonify({"error": f"No {direction} page found"}), 404
+            
+        return jsonify({"page": adjacent_page})
+        
+    except Exception as e:
+        print(f"Error getting adjacent page: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # added delete project
@@ -197,3 +222,8 @@ def api_project_delete():
         return jsonify({"error": "Delete failed or project not found"}), 404
 
     return jsonify({"deleted": proj_id}), 200
+
+
+# This should be the last part of the file
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
