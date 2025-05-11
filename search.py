@@ -108,7 +108,24 @@ def search_journals(
 
     # Full-text search for keywords
     if keywords and keywords[0]:
-        query["$text"] = {"$search": " ".join(keywords)}
+        # Create an $and query that requires all keywords to be present
+        keyword_queries = []
+        for keyword in keywords:
+            # Use regex without word boundaries to allow partial matches
+            keyword_queries.append({
+                "text": {
+                    "$regex": re.escape(keyword),
+                    "$options": "i"
+                }
+            })
+        
+        if len(keyword_queries) > 1:
+            query["$and"] = keyword_queries
+        else:
+            query["text"] = {
+                "$regex": re.escape(keywords[0]),
+                "$options": "i"
+            }
 
     try:
         results = []
