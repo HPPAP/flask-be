@@ -9,24 +9,40 @@ from projects import (
     create_project,
     delete_project,
     get_page,
+    update_page_metadata,
+    update_project_page_metadata,
+    get_project_data_for_export,
 )
+import csv
+import io
+import json
 
 app = Flask(__name__)
-# test
 # Configure CORS properly to allow all origins, methods, and headers
 CORS(
     app,
     supports_credentials=True,
     origins=[
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
         "https://react-fe-2xnv.onrender.com",
     ],
-    methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "OPTIONS", "DELETE", "PUT", "PATCH"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
     expose_headers=["Content-Type", "X-Total-Count"],
     vary_header=True,
 )
+
+# Remove this custom CORS headers function as it conflicts with flask-cors
+# @app.after_request
+# def add_cors_headers(response):
+#     response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+#     response.headers.add('Access-Control-Allow-Credentials', 'true')
+#     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+#     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+#     return response
 
 
 @app.route("/api/page/get", methods=["POST"])
@@ -222,6 +238,159 @@ def api_project_delete():
         return jsonify({"error": "Delete failed or project not found"}), 404
 
     return jsonify({"deleted": proj_id}), 200
+
+
+# Add an endpoint to update universal page metadata
+@app.route("/api/page/metadata/update", methods=["POST"])
+def api_update_page_metadata():
+    try:
+        data = request.get_json()
+        if not data or "page_id" not in data or "metadata" not in data:
+            return {"error": "Invalid request data"}, 400
+        
+        page_id = data["page_id"]
+        metadata = data["metadata"]
+        
+        success = update_page_metadata(page_id, metadata)
+        if not success:
+            return {"error": "Failed to update page metadata"}, 500
+            
+        return {"success": True, "message": "Page metadata updated successfully"}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+# Add an endpoint to update project-specific page metadata
+@app.route("/api/project/page/metadata/update", methods=["POST"])
+def api_update_project_page_metadata():
+    try:
+        data = request.get_json()
+        if not data or "project_id" not in data or "page_id" not in data or "metadata" not in data:
+            return {"error": "Invalid request data"}, 400
+        
+        project_id = data["project_id"]
+        page_id = data["page_id"]
+        metadata = data["metadata"]
+        
+        success = update_project_page_metadata(project_id, page_id, metadata)
+        if not success:
+            return {"error": "Failed to update project page metadata"}, 500
+            
+        return {"success": True, "message": "Project page metadata updated successfully"}, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+# Add an endpoint to export project data to CSV
+@app.route("/api/project/export/csv", methods=["POST", "OPTIONS"])
+def api_export_project_to_csv():
+    # Handle OPTIONS request for CORS
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        return response
+        
+    try:
+        print("Export to CSV endpoint called")
+        data = request.get_json()
+        print(f"Request data: {data}")
+        
+        if not data or "project_id" not in data:
+            print("Invalid request data - project_id missing")
+            return {"error": "Invalid request data"}, 400
+        
+        project_id = data["project_id"]
+        print(f"Exporting project: {project_id}")
+        
+        # Get project data including all metadata
+        project_data = get_project_data_for_export(project_id)
+        if not project_data:
+            print(f"Project data not found for ID: {project_id}")
+            return {"error": "Project not found or error retrieving data"}, 404
+            
+        # Create CSV in memory
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write CSV header
+        writer.writerow([
+            "Volume", 
+            "Page Number", 
+            "Date", 
+            "Topics", 
+            "Text", 
+            "Keywords",
+            "Page Notes",
+            "Passages"
+        ])
+        
+        # Sort pages by page number (numerically)
+        sorted_pages = sorted(project_data["pages"], 
+                            key=lambda x: int(x["page_number"]) if x["page_number"].isdigit() else 0)
+        
+        # Write data for each page (one row per page)
+        page_count = 0
+        for page in sorted_pages:
+            try:
+                # Prepare the passages data
+                passages_text = ""
+                
+                if page["passages"] and len(page["passages"]) > 0:
+                    # Combine all passages into a single formatted text
+                    passages_list = []
+                    for passage in page["passages"]:
+                        passage_id = passage.get("id", "")
+                        passage_text = passage.get("text", "").replace("\n", " ").replace("\r", "")
+                        passage_note = page["passage_notes"].get(passage_id, "").replace("\n", " ").replace("\r", "")
+                        
+                        # Format: "PASSAGE: {text} | NOTE: {note}"
+                        formatted_passage = f"PASSAGE: {passage_text}"
+                        if passage_note.strip():
+                            formatted_passage += f" | NOTE: {passage_note}"
+                        
+                        passages_list.append(formatted_passage)
+                    
+                    # Join all passages with a clear separator
+                    passages_text = "\n\n".join(passages_list)
+                
+                # Write a single row for the page with all its passages
+                writer.writerow([
+                    page.get("volume_title", ""),
+                    page.get("page_number", ""),
+                    page.get("date", ""),
+                    "; ".join(page.get("topics", [])),
+                    # Sanitize text fields to avoid CSV formatting issues
+                    (page.get("text", "") or "").replace("\n", " ").replace("\r", ""),
+                    page.get("keywords", ""),
+                    (page.get("page_notes", "") or "").replace("\n", " ").replace("\r", ""),
+                    passages_text
+                ])
+                page_count += 1
+                
+            except Exception as e:
+                print(f"Error processing page: {e}")
+                continue
+        
+        # Get the CSV string
+        csv_data = output.getvalue()
+        output.close()
+        
+        print(f"CSV export successful with {page_count} rows generated")
+        
+        return jsonify({
+            "success": True,
+            "csv_data": csv_data,
+            "filename": f"{project_data['project_title'] or 'project'}_export.csv"
+        })
+        
+    except Exception as e:
+        print(f"Error exporting project data: {e}")
+        # Print stack trace
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}, 500
 
 
 # This should be the last part of the file
