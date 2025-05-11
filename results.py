@@ -1,15 +1,21 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from pymongo import MongoClient
 from typing import List, Dict, Any, Optional
 from bson.objectid import ObjectId
 import certifi
+import os
 
 ca = certifi.where()
 
 # MongoDB Setup - using the same connection as search.py
-MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net/dev"
-
+# MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net/dev"
+MONGO_URI = os.environ["MONGO"]
 client = MongoClient(MONGO_URI, tlsCAFile=ca)
-db = client["dev"]
+db = client["test"]
+# db = client["test"]
 collection = db["pages"]
 
 def get_pages_by_ids(page_ids: List[str]) -> List[Dict[str, Any]]:

@@ -393,6 +393,50 @@ def api_export_project_to_csv():
         return {"error": str(e)}, 500
 
 
+@app.route("/api/page/passages/all-projects", methods=["POST"])
+def api_get_page_passages_all_projects():
+    try:
+        data = request.get_json()
+        if not data or "page_id" not in data:
+            return {"error": "Invalid request data"}, 400
+        
+        page_id = data["page_id"]
+        current_project_id = data.get("current_project_id", None)
+        
+        # Get all projects that include this page
+        all_projects = get_all_projects()
+        projects_with_page = []
+        
+        for project in all_projects:
+            # Skip the current project if specified
+            if current_project_id and project["_id"] == current_project_id:
+                continue
+                
+            # Check if the page is in this project
+            if page_id in project.get("pages", []):
+                # Get page metadata from this project
+                if "page_metadata" in project and page_id in project["page_metadata"]:
+                    metadata = project["page_metadata"][page_id]
+                    
+                    # Extract passage data only
+                    if "passages" in metadata and metadata["passages"]:
+                        projects_with_page.append({
+                            "project_id": project["_id"],
+                            "project_title": project.get("title", f"Project {project['_id'][-6:]}"),
+                            "passages": metadata["passages"],
+                            "passage_notes": metadata.get("passage_notes", {})
+                        })
+        
+        return jsonify({
+            "success": True,
+            "projects": projects_with_page
+        })
+        
+    except Exception as e:
+        print(f"Error getting passage data: {e}")
+        return {"error": str(e)}, 500
+
+
 # This should be the last part of the file
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

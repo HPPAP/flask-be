@@ -10,10 +10,11 @@ load_dotenv()
 ca = certifi.where()
 
 # MongoDB Setup
-# MONGO_URI = os.environ["MONGO"]
-MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net/dev"
+MONGO_URI = os.environ["MONGO"]
+# MONGO_URI = "mongodb+srv://tripcredittracker:pOeTtv2PJCJyBqUz@tripcredittracker.0ymb8.mongodb.net/dev"
 client = MongoClient(MONGO_URI, tlsCAFile=ca)
-db = client["dev"]
+db = client["test"]
+# db = client["test"]
 collection = db["pages"]
 
 # Ensure full-text search index is created [WTF IS THIS?]

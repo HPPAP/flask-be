@@ -12,7 +12,8 @@ ca = certifi.where()
 # MongoDB Setup
 MONGO_URI = os.environ["MONGO"]
 client = MongoClient(MONGO_URI, tlsCAFile=ca)
-db = client["dev"]
+# db = client["dev"]
+db = client["test"]
 
 projects_collection = db["projects"]
 pages_collection = db["pages"]
