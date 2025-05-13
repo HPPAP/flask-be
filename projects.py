@@ -351,6 +351,7 @@ def get_project_data_for_export(project_id):
                 "topics": page.get("topics", []),
                 "text": page.get("text", ""),
                 "keywords": page_keywords.get(page_id, ""),
+                "volume_set": page.get("volume_set", ""),
             }
             
             # Add project-specific metadata if available

@@ -63,6 +63,7 @@ def search_journals(
     topics: List[str] = None,
     keywords: List[str] = None,
     year: Optional[Union[str, int]] = None,
+    volume_set: str = "parliamentary proceedings",
 ) -> dict:
     """Search journals based on provided filters"""
     # Print filters for debugging
@@ -70,10 +71,15 @@ def search_journals(
     print(f"Topics: {topics}")
     print(f"Keywords: {keywords}")
     print(f"Year: {year}")
+    print(f"Volume Set: {volume_set}")
     print("=====================")
 
     # Build the base query (non-year filters)
     query = {}  # Empty query will match all documents in MongoDB
+    
+    # Filter by volume_set (document collection)
+    if volume_set:
+        query["volume_set"] = volume_set.lower()  # Use lowercase for consistency
 
     # Filter by volume
     if volume and volume[0]:  # Check if list is not empty
@@ -133,102 +139,117 @@ def search_journals(
 
         # If year filter is provided, search for it
         if year is not None:
-            # Convert to string if an integer was passed
-            year = str(year)
-            print(f"Searching for year: {year}")
-
-            base_query = query.copy()
-
-            # APPROACH 1: EXACT MATCH SEARCH
-            # This is the recommended approach for dropdown-selected values
-            # When a year or range is selected from the dropdown, search for exact matches
-            # in volume_title
-            exact_query = base_query.copy()
-            exact_query["volume_title"] = {
-                "$regex": f"\\b{re.escape(year)}\\b",
-                "$options": "i",
-            }
-
-            exact_cursor = collection.find(exact_query)
-            exact_results = list(exact_cursor)
-
-            if exact_results:
-                print(
-                    f"Found {len(exact_results)} documents with exact match for '{year}'"
-                )
-                for doc in exact_results:
+            # For Statutes of the Realm, the year is actually the volume number
+            if volume_set and volume_set.lower() == "statutes of the realm":
+                print(f"Searching for volume: {year} in Statutes of the Realm")
+                query["volume_title"] = year
+                count = collection.count_documents(query)
+                cursor = collection.find(query)
+                
+                for doc in cursor:
                     doc["_id"] = str(doc["_id"])
-
-                return {"count": len(exact_results), "results": exact_results}
-
-            print(
-                f"No exact matches found for '{year}', trying alternative search methods"
-            )
-
-            # APPROACH 2: DECOMPOSE RANGE AND SEARCH BY INDIVIDUAL YEARS
-            # Only used as a fallback if exact match fails
-            year_range = []
-
-            # Check for range patterns like 1640-42 or 1640-1642
-            range_match = re.match(r"(\d{4})[-/](\d{2}|\d{4})", year)
-            if range_match:
-                start_year = int(range_match.group(1))
-                end_suffix = range_match.group(2)
-
-                if len(end_suffix) == 2:
-                    # Handle shortened range format (1640-42)
-                    # Use the century from the start year
-                    century = start_year // 100
-                    end_year = (century * 100) + int(end_suffix)
-
-                    # If this makes end_year less than start_year, assume we went to the next century
-                    if end_year < start_year:
-                        end_year += 100
-                else:
-                    # Handle full year range format (1640-1642)
-                    end_year = int(end_suffix)
-
-                # Make sure range is in chronological order
-                if end_year < start_year:
-                    print(
-                        f"Warning: Unusual year range {start_year}-{end_year}. Using as-is."
-                    )
-                    # Don't swap - trust the database format
-
-                # Create the range of years to search for
-                year_range = list(range(start_year, end_year + 1))
-
+                    results.append(doc)
+                
+                return {"count": count, "results": results}
+                
+            # For Parliamentary Proceedings, use the existing year-based search
             else:
-                # Try to convert to a single year
-                try:
-                    year_range = [int(year)]
+                # Convert to string if an integer was passed
+                year = str(year)
+                print(f"Searching for year: {year}")
 
-                except ValueError:
-                    year_range = []
-                    print(f"Warning: Could not parse '{year}' as a year.")
+                base_query = query.copy()
 
-            # Now try to find documents that might contain any year in the range
-            if year_range:
-                broader_query = base_query.copy()
-                # Use the first 2 digits of the year for a broader search
-                year_prefix = year[:2] if len(year) >= 2 else year
-                broader_query["volume_title"] = {"$regex": year_prefix, "$options": "i"}
+                # APPROACH 1: EXACT MATCH SEARCH
+                # This is the recommended approach for dropdown-selected values
+                # When a year or range is selected from the dropdown, search for exact matches
+                # in volume_title
+                exact_query = base_query.copy()
+                exact_query["volume_title"] = {
+                    "$regex": f"\\b{re.escape(year)}\\b",
+                    "$options": "i",
+                }
 
-                broader_cursor = collection.find(broader_query)
+                exact_cursor = collection.find(exact_query)
+                exact_results = list(exact_cursor)
 
-                for doc in broader_cursor:
-                    volume_title = doc.get("volume_title", "")
-                    extracted_years = extract_years(volume_title)
-
-                    # Check if any year in our range appears in the extracted years
-                    if extracted_years and any(
-                        y in extracted_years for y in year_range
-                    ):
+                if exact_results:
+                    print(
+                        f"Found {len(exact_results)} documents with exact match for '{year}'"
+                    )
+                    for doc in exact_results:
                         doc["_id"] = str(doc["_id"])
-                        results.append(doc)
 
-            total_count = len(results)
-            print(f"After broader search: {total_count} documents match")
+                    return {"count": len(exact_results), "results": exact_results}
+
+                print(
+                    f"No exact matches found for '{year}', trying alternative search methods"
+                )
+
+                # APPROACH 2: DECOMPOSE RANGE AND SEARCH BY INDIVIDUAL YEARS
+                # Only used as a fallback if exact match fails
+                year_range = []
+
+                # Check for range patterns like 1640-42 or 1640-1642
+                range_match = re.match(r"(\d{4})[-/](\d{2}|\d{4})", year)
+                if range_match:
+                    start_year = int(range_match.group(1))
+                    end_suffix = range_match.group(2)
+
+                    if len(end_suffix) == 2:
+                        # Handle shortened range format (1640-42)
+                        # Use the century from the start year
+                        century = start_year // 100
+                        end_year = (century * 100) + int(end_suffix)
+
+                        # If this makes end_year less than start_year, assume we went to the next century
+                        if end_year < start_year:
+                            end_year += 100
+                    else:
+                        # Handle full year range format (1640-1642)
+                        end_year = int(end_suffix)
+
+                    # Make sure range is in chronological order
+                    if end_year < start_year:
+                        print(
+                            f"Warning: Unusual year range {start_year}-{end_year}. Using as-is."
+                        )
+                        # Don't swap - trust the database format
+
+                    # Create the range of years to search for
+                    year_range = list(range(start_year, end_year + 1))
+
+                else:
+                    # Try to convert to a single year
+                    try:
+                        year_range = [int(year)]
+
+                    except ValueError:
+                        year_range = []
+                        print(f"Warning: Could not parse '{year}' as a year.")
+
+                # Now try to find documents that might contain any year in the range
+                if year_range:
+                    broader_query = base_query.copy()
+                    # Use the first 2 digits of the year for a broader search
+                    year_prefix = year[:2] if len(year) >= 2 else year
+                    broader_query["volume_title"] = {"$regex": year_prefix, "$options": "i"}
+
+                    broader_cursor = collection.find(broader_query)
+
+                    for doc in broader_cursor:
+                        volume_title = doc.get("volume_title", "")
+                        extracted_years = extract_years(volume_title)
+
+                        # Check if any year in our range appears in the extracted years
+                        if extracted_years and any(
+                            y in extracted_years for y in year_range
+                        ):
+                            doc["_id"] = str(doc["_id"])
+                            results.append(doc)
+
+                total_count = len(results)
+                print(f"After broader search: {total_count} documents match")
 
         else:
             # If no year filter, use normal MongoDB query
@@ -404,3 +425,16 @@ def get_all_years():
     except Exception as e:
         print(f"Error retrieving years: {e}")
         return {"years": [], "ranges": []}
+
+
+def get_volume_sets():
+    """
+    Returns all available document collections (volume_set values) in the database.
+    """
+    try:
+        # Get all unique volume_set values
+        volume_sets = collection.distinct("volume_set")
+        return sorted(volume_sets)
+    except Exception as e:
+        print(f"Error retrieving volume sets: {e}")
+        return []

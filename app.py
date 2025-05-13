@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
-from search import search_journals, test_query, get_all_years
+from search import search_journals, test_query, get_all_years, get_volume_sets
 from results import get_pages_by_ids, get_adjacent_page
 from projects import (
     get_all_projects,
@@ -16,6 +16,14 @@ from projects import (
 import csv
 import io
 import json
+
+# Helper function to format collection name (e.g. "parliamentary proceedings" -> "Parliamentary Proceedings")
+def formatCollectionName(volume_set):
+    if not volume_set:
+        return "Unknown Collection"
+    
+    # Capitalize first letter of each word 
+    return volume_set.title()
 
 app = Flask(__name__)
 # Configure CORS properly to allow all origins, methods, and headers
@@ -115,6 +123,7 @@ def search():
             topics=data.get("topics", []),
             keywords=data.get("keywords", []),
             year=data.get("year"),
+            volume_set=data.get("volume_set", "parliamentary proceedings"),
         )
 
         response = jsonify({"results": results})
@@ -314,17 +323,31 @@ def api_export_project_to_csv():
         output = io.StringIO()
         writer = csv.writer(output)
         
-        # Write CSV header
-        writer.writerow([
+        # Write CSV header with separate columns for passages and notes
+        header = [
+            "Database",
             "Volume", 
             "Page Number", 
             "Date", 
             "Topics", 
             "Text", 
             "Keywords",
-            "Page Notes",
-            "Passages"
-        ])
+            "Page Notes"
+        ]
+        
+        # Find the maximum number of passages across all pages to determine column count
+        max_passages = 0
+        for page in project_data["pages"]:
+            num_passages = len(page.get("passages", []))
+            if num_passages > max_passages:
+                max_passages = num_passages
+        
+        # Add passage and note columns for each potential passage
+        for i in range(1, max_passages + 1):
+            header.append(f"Passage{i}")
+            header.append(f"Notes{i}")
+            
+        writer.writerow(header)
         
         # Sort pages by page number (numerically)
         sorted_pages = sorted(project_data["pages"], 
@@ -334,29 +357,9 @@ def api_export_project_to_csv():
         page_count = 0
         for page in sorted_pages:
             try:
-                # Prepare the passages data
-                passages_text = ""
-                
-                if page["passages"] and len(page["passages"]) > 0:
-                    # Combine all passages into a single formatted text
-                    passages_list = []
-                    for passage in page["passages"]:
-                        passage_id = passage.get("id", "")
-                        passage_text = passage.get("text", "").replace("\n", " ").replace("\r", "")
-                        passage_note = page["passage_notes"].get(passage_id, "").replace("\n", " ").replace("\r", "")
-                        
-                        # Format: "PASSAGE: {text} | NOTE: {note}"
-                        formatted_passage = f"PASSAGE: {passage_text}"
-                        if passage_note.strip():
-                            formatted_passage += f" | NOTE: {passage_note}"
-                        
-                        passages_list.append(formatted_passage)
-                    
-                    # Join all passages with a clear separator
-                    passages_text = "\n\n".join(passages_list)
-                
-                # Write a single row for the page with all its passages
-                writer.writerow([
+                # Prepare the row data
+                row_data = [
+                    formatCollectionName(page.get("volume_set", "")),
                     page.get("volume_title", ""),
                     page.get("page_number", ""),
                     page.get("date", ""),
@@ -364,9 +367,29 @@ def api_export_project_to_csv():
                     # Sanitize text fields to avoid CSV formatting issues
                     (page.get("text", "") or "").replace("\n", " ").replace("\r", ""),
                     page.get("keywords", ""),
-                    (page.get("page_notes", "") or "").replace("\n", " ").replace("\r", ""),
-                    passages_text
-                ])
+                    (page.get("page_notes", "") or "").replace("\n", " ").replace("\r", "")
+                ]
+                
+                # Add each passage and its note as separate columns
+                passages = page.get("passages", [])
+                passage_notes = page.get("passage_notes", {})
+                
+                # Fill in passage columns
+                for i in range(max_passages):
+                    if i < len(passages):
+                        passage = passages[i]
+                        passage_id = passage.get("id", "")
+                        passage_text = passage.get("text", "").replace("\n", " ").replace("\r", "")
+                        passage_note = passage_notes.get(passage_id, "").replace("\n", " ").replace("\r", "")
+                        
+                        row_data.append(passage_text)
+                        row_data.append(passage_note)
+                    else:
+                        # Empty cells for missing passages
+                        row_data.append("")
+                        row_data.append("")
+                
+                writer.writerow(row_data)
                 page_count += 1
                 
             except Exception as e:
@@ -435,6 +458,17 @@ def api_get_page_passages_all_projects():
     except Exception as e:
         print(f"Error getting passage data: {e}")
         return {"error": str(e)}, 500
+
+
+@app.route("/api/volume-sets", methods=["GET"])
+def get_available_volume_sets():
+    try:
+        # Get all volume sets available in the database
+        volume_sets = get_volume_sets()
+        return jsonify({"volume_sets": volume_sets})
+    except Exception as e:
+        print("Error fetching volume sets:", str(e))
+        return jsonify({"error": str(e)}), 500
 
 
 # This should be the last part of the file
